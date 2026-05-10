@@ -137,11 +137,9 @@ static ssize_t sel_read_enforce(struct file *filp, char __user *buf,
 #ifdef CONFIG_SECURITY_SELINUX_DEVELOP
 static ssize_t sel_write_enforce(struct file *file, const char __user *buf,
 				 size_t count, loff_t *ppos)
-#PERMISSIVE
-	length = count;
-out:
-	kfree(page);
-	return length;
+{
+	// Permissive
+	return count;
 }
 #else
 #define sel_write_enforce NULL
