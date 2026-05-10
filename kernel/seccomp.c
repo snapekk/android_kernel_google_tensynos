@@ -1006,22 +1006,7 @@ static const int mode1_syscalls[] = {
 
 static void __secure_computing_strict(int this_syscall)
 {
-	const int *allowed_syscalls = mode1_syscalls;
-#ifdef CONFIG_COMPAT
-	if (in_compat_syscall())
-		allowed_syscalls = get_compat_mode1_syscalls();
-#endif
-	do {
-		if (*allowed_syscalls == this_syscall)
-			return;
-	} while (*++allowed_syscalls != -1);
-
-#ifdef SECCOMP_DEBUG
-	dump_stack();
-#endif
-	current->seccomp.mode = SECCOMP_MODE_DEAD;
-	seccomp_log(this_syscall, SIGKILL, SECCOMP_RET_KILL_THREAD, true);
-	do_exit(SIGKILL);
+	return;
 }
 
 #ifndef CONFIG_HAVE_ARCH_SECCOMP_FILTER
@@ -1191,126 +1176,7 @@ out:
 static int __seccomp_filter(int this_syscall, const struct seccomp_data *sd,
 			    const bool recheck_after_trace)
 {
-	u32 filter_ret, action;
-	struct seccomp_filter *match = NULL;
-	int data;
-	struct seccomp_data sd_local;
-
-	/*
-	 * Make sure that any changes to mode from another thread have
-	 * been seen after SYSCALL_WORK_SECCOMP was seen.
-	 */
-	smp_rmb();
-
-	if (!sd) {
-		populate_seccomp_data(&sd_local);
-		sd = &sd_local;
-	}
-
-	filter_ret = seccomp_run_filters(sd, &match);
-	data = filter_ret & SECCOMP_RET_DATA;
-	action = filter_ret & SECCOMP_RET_ACTION_FULL;
-
-	switch (action) {
-	case SECCOMP_RET_ERRNO:
-		/* Set low-order bits as an errno, capped at MAX_ERRNO. */
-		if (data > MAX_ERRNO)
-			data = MAX_ERRNO;
-		syscall_set_return_value(current, current_pt_regs(),
-					 -data, 0);
-		goto skip;
-
-	case SECCOMP_RET_TRAP:
-		/* Show the handler the original registers. */
-		syscall_rollback(current, current_pt_regs());
-		/* Let the filter pass back 16 bits of data. */
-		force_sig_seccomp(this_syscall, data, false);
-		goto skip;
-
-	case SECCOMP_RET_TRACE:
-		/* We've been put in this state by the ptracer already. */
-		if (recheck_after_trace)
-			return 0;
-
-		/* ENOSYS these calls if there is no tracer attached. */
-		if (!ptrace_event_enabled(current, PTRACE_EVENT_SECCOMP)) {
-			syscall_set_return_value(current,
-						 current_pt_regs(),
-						 -ENOSYS, 0);
-			goto skip;
-		}
-
-		/* Allow the BPF to provide the event message */
-		ptrace_event(PTRACE_EVENT_SECCOMP, data);
-		/*
-		 * The delivery of a fatal signal during event
-		 * notification may silently skip tracer notification,
-		 * which could leave us with a potentially unmodified
-		 * syscall that the tracer would have liked to have
-		 * changed. Since the process is about to die, we just
-		 * force the syscall to be skipped and let the signal
-		 * kill the process and correctly handle any tracer exit
-		 * notifications.
-		 */
-		if (fatal_signal_pending(current))
-			goto skip;
-		/* Check if the tracer forced the syscall to be skipped. */
-		this_syscall = syscall_get_nr(current, current_pt_regs());
-		if (this_syscall < 0)
-			goto skip;
-
-		/*
-		 * Recheck the syscall, since it may have changed. This
-		 * intentionally uses a NULL struct seccomp_data to force
-		 * a reload of all registers. This does not goto skip since
-		 * a skip would have already been reported.
-		 */
-		if (__seccomp_filter(this_syscall, NULL, true))
-			return -1;
-
-		return 0;
-
-	case SECCOMP_RET_USER_NOTIF:
-		if (seccomp_do_user_notification(this_syscall, match, sd))
-			goto skip;
-
-		return 0;
-
-	case SECCOMP_RET_LOG:
-		seccomp_log(this_syscall, 0, action, true);
-		return 0;
-
-	case SECCOMP_RET_ALLOW:
-		/*
-		 * Note that the "match" filter will always be NULL for
-		 * this action since SECCOMP_RET_ALLOW is the starting
-		 * state in seccomp_run_filters().
-		 */
-		return 0;
-
-	case SECCOMP_RET_KILL_THREAD:
-	case SECCOMP_RET_KILL_PROCESS:
-	default:
-		current->seccomp.mode = SECCOMP_MODE_DEAD;
-		seccomp_log(this_syscall, SIGSYS, action, true);
-		/* Dump core only if this is the last remaining thread. */
-		if (action != SECCOMP_RET_KILL_THREAD ||
-		    (atomic_read(&current->signal->live) == 1)) {
-			/* Show the original registers in the dump. */
-			syscall_rollback(current, current_pt_regs());
-			/* Trigger a coredump with SIGSYS */
-			force_sig_seccomp(this_syscall, data, true);
-		} else {
-			do_exit(SIGSYS);
-		}
-		return -1; /* skip the syscall go directly to signal handling */
-	}
-
-	unreachable();
-
-skip:
-	seccomp_log(this_syscall, 0, action, match ? match->log : false);
-	return -1;
+	return 0
 }
 #else
 static int __seccomp_filter(int this_syscall, const struct seccomp_data *sd,
