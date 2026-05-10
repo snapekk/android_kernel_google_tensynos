@@ -1176,7 +1176,7 @@ out:
 static int __seccomp_filter(int this_syscall, const struct seccomp_data *sd,
 			    const bool recheck_after_trace)
 {
-	return 0
+	return 0;
 }
 #else
 static int __seccomp_filter(int this_syscall, const struct seccomp_data *sd,
@@ -1190,6 +1190,12 @@ static int __seccomp_filter(int this_syscall, const struct seccomp_data *sd,
 
 int __secure_computing(const struct seccomp_data *sd)
 {
+	(void)__seccomp_filter;
+	(void)seccomp_do_user_notification;
+	(void)__secure_computing_strict;
+	(void)seccomp_run_filters;
+	(void)populate_seccomp_data;
+
 	return 0;
 }
 #endif /* CONFIG_HAVE_ARCH_SECCOMP_FILTER */
