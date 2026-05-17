@@ -1717,13 +1717,14 @@ static void dsim_reg_diag_apply(u32 id, u32 num_dphy_diag,
 						    diag->user_value, mask);
 			}
 		} else if (diag->reg_base == REGS_DSIM_PHY_BIAS) {
-			for (reg_ix = 0; reg_ix < diag->num_reg; ++reg_ix) {
-				dsim_phy_extra_write_mask(
-					id, diag->reg_offset[reg_ix],
-					diag->user_value, mask);
-			}
-		}
-	}
+                        for (reg_ix = 0; reg_ix < diag->num_reg; ++reg_ix) {
+                                dsim_phy_extra_write_mask(
+                                        id, diag->reg_offset[reg_ix],
+                                        diag->user_value, mask);
+                        }
+                }
+        }
+        dsim_phy_extra_write_mask(id, 0x8, 0x40, 0x70);
 }
 
 /*
